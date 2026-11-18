@@ -125,21 +125,41 @@ describe('Motor de Sessão e Regras de Negócio (RN-01 a RN-08)', () => {
     expect(retomada.fimFasePrevistoEm).toBe(instanteRetomada + 15 * 60_000);
   });
 
-  it('pular fase de foco ou de pausa não incrementa a contagem de ciclos (RN-03, UC06)', () => {
+  it('pular fase avança por todas as fases até pausa longa e encerramento sem incrementar ciclos concluídos (RN-03, UC06)', () => {
     const t0 = 1_000_000;
+    // PRESET_EXEMPLO tem 3 ciclos antes da pausa longa
     const s0 = criarSessaoAtiva(PRESET_EXEMPLO, t0);
     expect(s0.cicloAtual).toBe(1);
     expect(s0.faseAtual).toBe('foco');
+    expect(s0.ciclosConcluidos).toBe(0);
 
-    // Pula foco -> vai para pausaCurta mantendo ciclo 1
-    const pulo1 = pularFase(s0, t0 + 5_000);
-    expect(pulo1.sessao?.faseAtual).toBe('pausaCurta');
-    expect(pulo1.sessao?.cicloAtual).toBe(1);
+    // Ciclo 1: Foco -> Pausa Curta
+    const p1 = pularFase(s0, t0 + 1_000);
+    expect(p1.sessao?.cicloAtual).toBe(1);
+    expect(p1.sessao?.faseAtual).toBe('pausaCurta');
+    expect(p1.sessao?.ciclosConcluidos).toBe(0);
 
-    // Pula pausaCurta -> volta para foco mantendo ciclo 1 (RN-03!)
-    const pulo2 = pularFase(pulo1.sessao!, t0 + 10_000);
-    expect(pulo2.sessao?.faseAtual).toBe('foco');
-    expect(pulo2.sessao?.cicloAtual).toBe(1);
+    // Ciclo 1 Pausa Curta -> Ciclo 2 Foco (sem incrementar ciclosConcluidos — RN-03)
+    const p2 = pularFase(p1.sessao!, t0 + 2_000);
+    expect(p2.sessao?.cicloAtual).toBe(2);
+    expect(p2.sessao?.faseAtual).toBe('foco');
+    expect(p2.sessao?.ciclosConcluidos).toBe(0);
+
+    // Ciclo 2 Foco -> Ciclo 2 Pausa Curta -> Ciclo 3 Foco -> Ciclo 3 Pausa Longa
+    const p3 = pularFase(p2.sessao!, t0 + 3_000);
+    expect(p3.sessao?.faseAtual).toBe('pausaCurta');
+    const p4 = pularFase(p3.sessao!, t0 + 4_000);
+    expect(p4.sessao?.cicloAtual).toBe(3);
+    expect(p4.sessao?.faseAtual).toBe('foco');
+    const p5 = pularFase(p4.sessao!, t0 + 5_000);
+    expect(p5.sessao?.cicloAtual).toBe(3);
+    expect(p5.sessao?.faseAtual).toBe('pausaLonga');
+    expect(p5.sessao?.ciclosConcluidos).toBe(0);
+
+    // UC06 1a: Pular a última fase (Pausa Longa) encerra a sessão
+    const p6 = pularFase(p5.sessao!, t0 + 6_000);
+    expect(p6.encerradaPorUltimaFase).toBe(true);
+    expect(p6.sessao).toBeNull();
   });
 
   it('reiniciar ciclos retorna ao ciclo 1 de foco mantendo preset (RN-04, UC07)', () => {

@@ -71,6 +71,8 @@ export function criarSessaoAtiva(
     snapshotPreset: snapshot,
     faseAtual: 'foco',
     cicloAtual: 1,
+    ciclosConcluidos: 0,
+    focoConcluidoNoCiclo: false,
     status: 'emAndamento',
     inicioFaseEm: agoraMs,
     fimFasePrevistoEm: agoraMs + duracaoMs,
@@ -129,10 +131,10 @@ export function retomarSessao(
 }
 
 /**
- * Calcula a próxima fase em progressão natural (ao concluir a fase por tempo).
- * Retorna null quando todas as fases previstas na sessão foram concluídas.
+ * Calcula a próxima fase prevista na sequência da sessão.
+ * Retorna null quando a fase atual é a última antes da conclusão da sessão.
  */
-function proximaFasePorConclusaoNatural(
+function proximaFasePrevista(
   snapshot: SnapshotPreset,
   faseAtual: FaseSessao,
   cicloAtual: number
@@ -158,9 +160,9 @@ function proximaFasePorConclusaoNatural(
 }
 
 /**
- * UC06 / RN-03: Pula manualmente a fase atual sem contabilizá-la como concluída.
- * - Pular fase de foco NÃO incrementa a contagem de ciclos (RN-03).
- * - Pular fase de pausa NÃO incrementa a contagem de ciclos (RN-03).
+ * UC06 / RN-03: Pula manualmente a fase atual avançando para a próxima fase prevista
+ * (Foco 1 -> Pausa Curta 1 -> Foco 2 -> ... -> Foco N -> Pausa Longa -> Encerra),
+ * sem contabilizar a fase/ciclo como concluído (RN-03: ciclosConcluidos não incrementa).
  * - UC06 1a: Se a fase atual for a última antes da conclusão da sessão (pausaLonga), a sessão é encerrada.
  */
 export function pularFase(
@@ -171,29 +173,30 @@ export function pularFase(
     return { sessao, encerradaPorUltimaFase: false };
   }
 
+  const proximo = proximaFasePrevista(
+    sessao.snapshotPreset,
+    sessao.faseAtual,
+    sessao.cicloAtual
+  );
+
   // UC06 1a: última fase prevista antes da conclusão da sessão
-  if (sessao.faseAtual === 'pausaLonga') {
+  if (proximo === null) {
     return {
       sessao: null,
       encerradaPorUltimaFase: true,
     };
   }
 
-  const proximaFase: FaseSessao =
-    sessao.faseAtual === 'foco'
-      ? sessao.cicloAtual >= sessao.snapshotPreset.ciclosAntesPausaLonga
-        ? 'pausaLonga'
-        : 'pausaCurta'
-      : 'foco';
-
-  const duracaoMs = obterDuracaoFaseMs(sessao.snapshotPreset, proximaFase);
+  const duracaoMs = obterDuracaoFaseMs(sessao.snapshotPreset, proximo.fase);
 
   return {
     sessao: {
       ...sessao,
-      faseAtual: proximaFase,
-      // RN-03: cicloAtual nunca é incrementado ao pular foco ou pausa
-      cicloAtual: sessao.cicloAtual,
+      faseAtual: proximo.fase,
+      cicloAtual: proximo.ciclo,
+      // RN-03: pular fase de foco ou de pausa não incrementa a contagem de ciclos concluídos
+      ciclosConcluidos: sessao.ciclosConcluidos ?? 0,
+      focoConcluidoNoCiclo: false,
       status: 'emAndamento',
       inicioFaseEm: agoraMs,
       fimFasePrevistoEm: agoraMs + duracaoMs,
@@ -218,6 +221,8 @@ export function reiniciarCiclos(
     ...sessao,
     faseAtual: 'foco',
     cicloAtual: 1,
+    ciclosConcluidos: 0,
+    focoConcluidoNoCiclo: false,
     status: 'emAndamento',
     inicioFaseEm: agoraMs,
     fimFasePrevistoEm: agoraMs + duracaoMs,
@@ -262,6 +267,8 @@ export function recalcularSessaoPorTimestamp(
   // RN-07 / RN-08: Avança sequencialmente pelas fases vencidas
   let faseCursor: FaseSessao = sessao.faseAtual;
   let cicloCursor = sessao.cicloAtual;
+  let concluidosCursor = sessao.ciclosConcluidos ?? 0;
+  let focoConcluidoCursor = sessao.focoConcluidoNoCiclo ?? false;
   let inicioCursor = sessao.inicioFaseEm;
   let fimCursor = sessao.fimFasePrevistoEm;
   let fasesAvancadas = 0;
@@ -272,7 +279,17 @@ export function recalcularSessaoPorTimestamp(
 
   while (agoraMs >= fimCursor && fasesAvancadas < limiteSeguranca) {
     fasesAvancadas += 1;
-    const proximo = proximaFasePorConclusaoNatural(
+
+    if (faseCursor === 'foco') {
+      focoConcluidoCursor = true;
+    } else {
+      if (focoConcluidoCursor) {
+        concluidosCursor += 1;
+      }
+      focoConcluidoCursor = false;
+    }
+
+    const proximo = proximaFasePrevista(
       sessao.snapshotPreset,
       faseCursor,
       cicloCursor
@@ -285,6 +302,8 @@ export function recalcularSessaoPorTimestamp(
           ...sessao,
           faseAtual: faseCursor,
           cicloAtual: cicloCursor,
+          ciclosConcluidos: concluidosCursor,
+          focoConcluidoNoCiclo: false,
           status: 'concluida',
           inicioFaseEm: inicioCursor,
           fimFasePrevistoEm: fimCursor,
@@ -309,6 +328,8 @@ export function recalcularSessaoPorTimestamp(
       ...sessao,
       faseAtual: faseCursor,
       cicloAtual: cicloCursor,
+      ciclosConcluidos: concluidosCursor,
+      focoConcluidoNoCiclo: focoConcluidoCursor,
       status: 'emAndamento',
       inicioFaseEm: inicioCursor,
       fimFasePrevistoEm: fimCursor,

@@ -393,6 +393,11 @@ select:focus-visible {
   color: var(--texto-secundario);
 }
 
+.ciclos-concluidos-subtexto {
+  font-size: 0.72rem;
+  color: var(--texto-auxiliar);
+}
+
 .ciclos-pontos {
   display: flex;
   flex-wrap: wrap;

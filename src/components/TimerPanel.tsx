@@ -96,6 +96,7 @@ export const TimerPanel: React.FC<TimerPanelProps> = ({
     : presetSelecionado?.ciclosAntesPausaLonga ?? 4;
 
   const cicloCorrente = sessaoAtiva ? sessaoAtiva.cicloAtual : 1;
+  const ciclosConcluidos = sessaoAtiva ? sessaoAtiva.ciclosConcluidos ?? 0 : 0;
 
   const raioSvg = 116;
   const circunferencia = 2 * Math.PI * raioSvg;
@@ -265,7 +266,10 @@ export const TimerPanel: React.FC<TimerPanelProps> = ({
               >
                 {formatarTempoMmSs(tempoRestanteMs)}
               </div>
-              <div className="ciclos-progresso" aria-label={`Ciclo ${cicloCorrente} de ${totalCiclos}`}>
+              <div
+                className="ciclos-progresso"
+                aria-label={`Ciclo ${cicloCorrente} de ${totalCiclos}, ${ciclosConcluidos} concluídos`}
+              >
                 <span className="ciclos-texto">
                   Ciclo {cicloCorrente} de {totalCiclos}
                 </span>
@@ -286,6 +290,12 @@ export const TimerPanel: React.FC<TimerPanelProps> = ({
                     );
                   })}
                 </div>
+                {sessaoAtiva && (
+                  <span className="ciclos-concluidos-subtexto">
+                    {ciclosConcluidos}{' '}
+                    {ciclosConcluidos === 1 ? 'concluído' : 'concluídos'}
+                  </span>
+                )}
               </div>
             </div>
           </div>

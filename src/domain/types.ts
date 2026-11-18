@@ -27,6 +27,8 @@ export interface SessaoAtiva {
   snapshotPreset: SnapshotPreset;
   faseAtual: FaseSessao;
   cicloAtual: number;
+  ciclosConcluidos?: number;
+  focoConcluidoNoCiclo?: boolean;
   status: StatusSessao;
   inicioFaseEm: number;
   fimFasePrevistoEm: number;
