@@ -2,7 +2,7 @@ export type TipoSomAmbiente =
   | 'desativado'
   | 'chuva'
   | 'ondas'
-  | 'lareira'
+  | 'zen'
   | 'ruidoMarrom';
 
 /**
@@ -128,53 +128,6 @@ function gerarGotasDeChuva(
   return dados;
 }
 
-/**
- * Gerador estocástico de estalos e crepitações de lenha na lareira.
- */
-function gerarEstalosLareira(
-  totalAmostras: number,
-  taxaAmostragem: number
-): Float32Array {
-  const dados = new Float32Array(totalAmostras);
-  const duracaoSeg = totalAmostras / taxaAmostragem;
-
-  // 1) Estalos finos e agudos de gravetos (em pequenos agrupamentos naturais)
-  const gruposEstalo = Math.floor(duracaoSeg * 5.5);
-  for (let c = 0; c < gruposEstalo; c++) {
-    const baseGrupo = Math.floor(Math.random() * (totalAmostras - 8000));
-    const subEstalos = 1 + Math.floor(Math.random() * 4);
-
-    for (let s = 0; s < subEstalos; s++) {
-      const inicio =
-        baseGrupo + Math.floor(Math.random() * taxaAmostragem * 0.14);
-      const dur = Math.floor(taxaAmostragem * (0.002 + Math.random() * 0.006));
-      const amp = 0.18 + Math.random() * 0.38;
-
-      for (let k = 0; k < dur && inicio + k < totalAmostras; k++) {
-        const env = Math.exp(-k / (dur * 0.22));
-        dados[inicio + k] += (Math.random() * 2 - 1) * amp * env;
-      }
-    }
-  }
-
-  // 2) "Pops" médios/graves de brasa de madeira
-  const popsBrasa = Math.floor(duracaoSeg * 1.8);
-  for (let p = 0; p < popsBrasa; p++) {
-    const inicio = Math.floor(Math.random() * (totalAmostras - 4000));
-    const dur = Math.floor(taxaAmostragem * (0.012 + Math.random() * 0.025));
-    const freq = 220 + Math.random() * 340;
-    const amp = 0.14 + Math.random() * 0.22;
-
-    for (let k = 0; k < dur && inicio + k < totalAmostras; k++) {
-      const t = k / taxaAmostragem;
-      const env = Math.exp(-k / (dur * 0.25));
-      dados[inicio + k] += Math.sin(2 * Math.PI * freq * t) * amp * env;
-    }
-  }
-
-  return dados;
-}
-
 class ServicoAudioPomodoro {
   private contexto: AudioContext | null = null;
   private ganhoMestreAmbiente: GainNode | null = null;
@@ -287,7 +240,7 @@ class ServicoAudioPomodoro {
    * Configura síntese acústica realista de som ambiente via Web Audio API:
    * - Chuva na Janela: cortina estéreo de chuva (ruído rosa filtrado) + gotas d'água estocásticas
    * - Ondas do Mar: duas frentes de ondas estéreo com modulação sincronizada de volume e espuma
-   * - Lareira Suave: sopro quente de brasa + crepitações e estalos naturais de lenha
+   * - Harmonia Zen: acorde ambiente acolhedor (Cmaj9) com respiração lenta estéreo estilo Deep Focus
    * - Ruído Marrom: grave profundo, contínuo e aveludado para bloqueio de distrações
    */
   public configurarSomAmbiente(tipo: TipoSomAmbiente, volume?: number): void {
@@ -336,8 +289,8 @@ class ServicoAudioPomodoro {
         this.montarChuva(ctx, mestre);
       } else if (tipo === 'ondas') {
         this.montarOndasDoMar(ctx, mestre);
-      } else if (tipo === 'lareira') {
-        this.montarLareira(ctx, mestre);
+      } else if (tipo === 'zen') {
+        this.montarHarmoniaZen(ctx, mestre);
       } else if (tipo === 'ruidoMarrom') {
         this.montarRuidoMarrom(ctx, mestre);
       }
@@ -447,54 +400,53 @@ class ServicoAudioPomodoro {
     });
   }
 
-  private montarLareira(ctx: AudioContext, destino: AudioNode): void {
-    // Camada 1: Sopro quente e grave da brasa
-    const bufferBrasa = criarBufferEstereoSemCostura(ctx, 9, (n) =>
-      gerarRuidoMarrom(n)
-    );
-    const fonteBrasa = this.registrarFonte(ctx.createBufferSource());
-    fonteBrasa.buffer = bufferBrasa;
-    fonteBrasa.loop = true;
+  private montarHarmoniaZen(ctx: AudioContext, destino: AudioNode): void {
+    const filtroSuave = this.registrarNo(ctx.createBiquadFilter());
+    filtroSuave.type = 'lowpass';
+    filtroSuave.frequency.value = 820;
+    filtroSuave.connect(destino);
 
-    const filtroBrasa = this.registrarNo(ctx.createBiquadFilter());
-    filtroBrasa.type = 'lowpass';
-    filtroBrasa.frequency.value = 210;
+    // Acorde ambiente acolhedor Cmaj9 (Dó3, Sol3, Dó4, Ré4, Mi4) com respiração lenta independente
+    const vozes = [
+      { freq: 130.81, ganhoBase: 0.16, modAmp: 0.04, lfoHz: 0.041, pan: -0.15 },
+      { freq: 196.0, ganhoBase: 0.13, modAmp: 0.045, lfoHz: 0.057, pan: 0.25 },
+      { freq: 261.63, ganhoBase: 0.1, modAmp: 0.038, lfoHz: 0.049, pan: -0.3 },
+      { freq: 293.66, ganhoBase: 0.065, modAmp: 0.032, lfoHz: 0.033, pan: 0.35 },
+      { freq: 329.63, ganhoBase: 0.075, modAmp: 0.035, lfoHz: 0.067, pan: -0.05 },
+    ];
 
-    const ganhoBrasa = this.registrarNo(ctx.createGain());
-    ganhoBrasa.gain.value = 0.42;
+    vozes.forEach((voz) => {
+      const osc = this.registrarFonte(ctx.createOscillator());
+      osc.type = 'sine';
+      osc.frequency.value = voz.freq;
 
-    fonteBrasa.connect(filtroBrasa);
-    filtroBrasa.connect(ganhoBrasa);
-    ganhoBrasa.connect(destino);
+      const ganhoVoz = this.registrarNo(ctx.createGain());
+      ganhoVoz.gain.value = voz.ganhoBase;
 
-    // Camada 2: Estalos de gravetos e crepitação da madeira
-    const bufferEstalos = criarBufferEstereoSemCostura(
-      ctx,
-      13.3,
-      (n, _c, taxa) => gerarEstalosLareira(n, taxa)
-    );
-    const fonteEstalos = this.registrarFonte(ctx.createBufferSource());
-    fonteEstalos.buffer = bufferEstalos;
-    fonteEstalos.loop = true;
+      const lfo = this.registrarFonte(ctx.createOscillator());
+      lfo.type = 'sine';
+      lfo.frequency.value = voz.lfoHz;
 
-    const passaAltaEstalos = this.registrarNo(ctx.createBiquadFilter());
-    passaAltaEstalos.type = 'highpass';
-    passaAltaEstalos.frequency.value = 180;
+      const ganhoLfo = this.registrarNo(ctx.createGain());
+      ganhoLfo.gain.value = voz.modAmp;
 
-    const passaBaixaEstalos = this.registrarNo(ctx.createBiquadFilter());
-    passaBaixaEstalos.type = 'lowpass';
-    passaBaixaEstalos.frequency.value = 5200;
+      lfo.connect(ganhoLfo);
+      ganhoLfo.connect(ganhoVoz.gain);
 
-    const ganhoEstalos = this.registrarNo(ctx.createGain());
-    ganhoEstalos.gain.value = 0.85;
+      osc.connect(ganhoVoz);
 
-    fonteEstalos.connect(passaAltaEstalos);
-    passaAltaEstalos.connect(passaBaixaEstalos);
-    passaBaixaEstalos.connect(ganhoEstalos);
-    ganhoEstalos.connect(destino);
+      if (typeof ctx.createStereoPanner === 'function') {
+        const panner = this.registrarNo(ctx.createStereoPanner());
+        panner.pan.value = voz.pan;
+        ganhoVoz.connect(panner);
+        panner.connect(filtroSuave);
+      } else {
+        ganhoVoz.connect(filtroSuave);
+      }
 
-    fonteBrasa.start();
-    fonteEstalos.start();
+      lfo.start();
+      osc.start();
+    });
   }
 
   private montarRuidoMarrom(ctx: AudioContext, destino: AudioNode): void {

@@ -53,7 +53,7 @@ const OPCOES_SOM_AMBIENTE: { valor: TipoSomAmbiente; rotulo: string }[] = [
   { valor: 'desativado', rotulo: 'Desativado' },
   { valor: 'chuva', rotulo: 'Chuva na Janela' },
   { valor: 'ondas', rotulo: 'Ondas do Mar' },
-  { valor: 'lareira', rotulo: 'Lareira Suave' },
+  { valor: 'zen', rotulo: 'Harmonia Zen' },
   { valor: 'ruidoMarrom', rotulo: 'Ruído Marrom (Foco)' },
 ];
 
