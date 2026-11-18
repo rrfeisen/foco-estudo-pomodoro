@@ -51,9 +51,10 @@ export interface TimerPanelProps {
 
 const OPCOES_SOM_AMBIENTE: { valor: TipoSomAmbiente; rotulo: string }[] = [
   { valor: 'desativado', rotulo: 'Desativado' },
-  { valor: 'chuva', rotulo: 'Chuva Suave' },
-  { valor: 'ruidoMarrom', rotulo: 'Ruído Marrom' },
-  { valor: 'ondas', rotulo: 'Ondas Calmas' },
+  { valor: 'chuva', rotulo: 'Chuva na Janela' },
+  { valor: 'ondas', rotulo: 'Ondas do Mar' },
+  { valor: 'lareira', rotulo: 'Lareira Suave' },
+  { valor: 'ruidoMarrom', rotulo: 'Ruído Marrom (Foco)' },
 ];
 
 export const TimerPanel: React.FC<TimerPanelProps> = ({

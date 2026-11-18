@@ -43,7 +43,7 @@ Toda a execução ocorre diretamente no navegador do usuário, preservando os te
   - Verificação de integridade dos dados no `localStorage`, oferecendo descarte seguro em caso de estado corrompido.
 - **Alerta Sonoro e Som Ambiente Opcional**:
   - Alerta sonoro melódico sintetizado via **Web Audio API** ao término de cada fase, com desbloqueio automático do contexto de áudio no início da sessão.
-  - Gerador opcional de **Som Ambiente** (*Chuva Suave*, *Ruído Marrom* e *Ondas Calmas*) com controle de volume integrado e execução 100% local.
+  - Gerador acústico opcional de **Som Ambiente** em estéreo (*Chuva na Janela*, *Ondas do Mar*, *Lareira Suave* e *Ruído Marrom*) com controle de volume integrado e execução 100% local.
 - **Painel Lateral de Tarefas de Estudo**:
   - Cadastro, edição, atualização rápida de estado e exclusão (com confirmação obrigatória) de tarefas totalmente desacopladas do temporizador.
   - Estados suportados: **Backlog**, **A fazer**, **Em execução**, **Concluída** e **Cancelada**.
@@ -216,7 +216,7 @@ flowchart TD
 ## 9. Áudio e Som Ambiente
 
 - **Mitigação de Autoplay (`R-01` / `RNF-10`)**: Ao acionar **Iniciar Sessão de Foco**, o `AudioContext` é ativado imediatamente pela interação do usuário, garantindo que os alertas sonoros de término de fase toquem de forma confiável.
-- **Som Ambiente (Opcional)**: Conforme previsto como extensão opcional pela proposta do projeto, a barra inferior do temporizador oferece geração local de áudio contínuo suave (*Chuva Suave*, *Ruído Marrom* e *Ondas Calmas*) com ajuste fino de volume, sem exigir arquivos de mídia externos.
+- **Som Ambiente (Opcional)**: Conforme previsto como extensão opcional pela proposta do projeto, a barra inferior do temporizador oferece síntese acústica estéreo sem emendas (*Chuva na Janela*, *Ondas do Mar*, *Lareira Suave* e *Ruído Marrom*) com ajuste fino de volume, sem exigir arquivos de mídia externos.
 
 ---
 
