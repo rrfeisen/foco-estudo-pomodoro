@@ -9,14 +9,15 @@ Aplicação web *single-user* para gestão de ciclos de foco baseados na técnic
 1. [Visão Geral e Objetivo](#1-visão-geral-e-objetivo)
 2. [Funcionalidades Principais](#2-funcionalidades-principais)
 3. [Tecnologias Utilizadas](#3-tecnologias-utilizadas)
-4. [Arquitetura do Sistema](#4-arquitetura-do-sistema)
-5. [Modelo Conceitual de Dados e Persistência](#5-modelo-conceitual-de-dados-e-persistência)
-6. [Regras de Negócio Implementadas](#6-regras-de-negócio-implementadas)
-7. [Validações de Entrada](#7-validações-de-entrada)
-8. [Casos de Uso Atendidos](#8-casos-de-uso-atendidos)
-9. [Áudio e Som Ambiente](#9-áudio-e-som-ambiente)
-10. [Como Executar Localmente](#10-como-executar-localmente)
-11. [Testes Automatizados e Build](#11-testes-automatizados-e-build)
+4. [Decisões Técnicas Adotadas](#4-decisões-técnicas-adotadas)
+5. [Arquitetura do Sistema](#5-arquitetura-do-sistema)
+6. [Modelo Conceitual de Dados e Persistência](#6-modelo-conceitual-de-dados-e-persistência)
+7. [Regras de Negócio Implementadas](#7-regras-de-negócio-implementadas)
+8. [Validações de Entrada](#8-validações-de-entrada)
+9. [Casos de Uso Atendidos](#9-casos-de-uso-atendidos)
+10. [Áudio e Som Ambiente](#10-áudio-e-som-ambiente)
+11. [Como Executar Localmente](#11-como-executar-localmente)
+12. [Testes Automatizados e Build](#12-testes-automatizados-e-build)
 
 ---
 
@@ -68,7 +69,30 @@ Toda a execução ocorre diretamente no navegador do usuário, preservando os te
 
 ---
 
-## 4. Arquitetura do Sistema
+## 4. Decisões Técnicas Adotadas
+
+Esta seção documenta as principais escolhas arquiteturais e técnicas da equipe e as respectivas justificativas frente aos requisitos do projeto:
+
+1. **Vite + React 18 + TypeScript em modo estrito (`strict: true`)**:
+   - Atende integralmente à restrição `RT-01`, garantindo inicialização rápida, *bundle* enxuto e verificação estática rigorosa de tipos nas entidades (`TemporizadorPersonalizado`, `SessaoAtiva`, `Tarefa`) e transições de fase, reduzindo falhas em tempo de execução.
+2. **Separação explícita entre Domínio, Persistência, Serviços e Interface (`RNF-09`)**:
+   - Toda a lógica crítica (`sessionEngine.ts`, `validation.ts`, `taskOrdering.ts`) foi isolada em funções puras de TypeScript, desacopladas de React e do DOM. Isso melhora a manutenibilidade e permite testes determinísticos (injetando o instante `agoraMs` diretamente nas funções, sem depender de esperas reais de relógio).
+3. **Recálculo temporal baseado em *timestamps* absolutos (`inicioFaseEm` / `fimFasePrevistoEm`)**:
+   - Navegadores modernos suspendem ou limitam `setInterval` em abas inativas (`R-02`) e interrompem a execução ao fechar o navegador. Em vez de decrementar contadores em memória, o motor compara `Date.now()` com *timestamps* absolutos e sincroniza o estado nos eventos `focus` e `visibilitychange`, garantindo precisão temporal (`RNF-03`) e retomada automática consistente (`UC10`, `RN-06` a `RN-08`).
+4. ***Snapshot* imutável na sessão e distinção entre etapa do ciclo (`cicloAtual`) e ciclos concluídos (`ciclosConcluidos`)**:
+   - Ao iniciar a sessão, uma cópia dos parâmetros do *preset* (`snapshotPreset`) é congelada na sessão ativa, assegurando imunidade a edições futuras (`RN-05`). Além disso, separar `cicloAtual` de `ciclosConcluidos` permite que o controle **Pular Fase** (`UC06`) avance por todas as fases previstas até a pausa longa e o encerramento sem contabilizar fases puladas como ciclos concluídos (`RN-03`).
+5. **Persistência defensiva sobre `localStorage` com validação na leitura (`R-03`, `RNF-06`)**:
+   - Para evitar que gravações parciais ou alterações manuais no armazenamento do navegador quebrem a aplicação, `localStorageRepository.ts` valida estruturalmente todos os dados ao carregar, encapsula escritas em blocos `try/catch` (reportando falhas de cota ou permissão na interface) e oferece descarte seguro caso a sessão persistida esteja corrompida.
+6. **CSS3 próprio com *Custom Properties* (variáveis CSS) em vez de biblioteca externa**:
+   - O documento concede liberdade de estilização; optar por CSS3 nativo com Grid/Flexbox e variáveis dinâmicas por fase (`Foco`, `Pausa Curta`, `Pausa Longa` e `Concluída`) evita sobrecarga de dependências, facilita o layout responsivo (`RF-18`, `RNF-05`) e oferece controle direto de contraste e foco visível para acessibilidade por teclado (`RNF-07`).
+7. **Alertas sonoros e som ambiente sintetizados via Web Audio API**:
+   - Sintetizar os alertas e o som ambiente opcional (*Chuva na Janela*, *Ondas do Mar*, *Harmonia Zen* e *Ruído Marrom*) diretamente no navegador elimina dependência de arquivos de mídia externos, funciona 100% offline e mitiga políticas de *autoplay* (`R-01`, `RNF-10`) ao inicializar o `AudioContext` na interação explícita do usuário com o botão **Iniciar**.
+8. **Estado nativo com React Hooks e testes automatizados com Vitest + JSDOM**:
+   - Como se trata de uma aplicação *single-user* sem *backend* (`RT-03`), os hooks nativos do React (`useState`, `useMemo`, `useCallback`, `useEffect`) entregam simplicidade e baixa latência de interface (`RNF-01`), dispensando gerenciadores globais pesados. O **Vitest** foi escolhido pela integração nativa com Vite/TypeScript, cobrindo testes unitários de regras de negócio e testes de integração dos fluxos da interface.
+
+---
+
+## 5. Arquitetura do Sistema
 
 O projeto adota separação clara de responsabilidades entre **Domínio**, **Persistência**, **Serviços** e **Interface** (`RNF-09`):
 
@@ -123,9 +147,9 @@ flowchart TD
 
 ---
 
-## 5. Modelo Conceitual de Dados e Persistência
+## 6. Modelo Conceitual de Dados e Persistência
 
-### 5.1 Chaves no `localStorage`
+### 6.1 Chaves no `localStorage`
 
 | Chave | Conteúdo |
 | :--- | :--- |
@@ -133,7 +157,7 @@ flowchart TD
 | `"pomodoro.tarefas"` | Lista JSON de `Tarefa[]` |
 | `"pomodoro.sessaoAtiva"` | Objeto JSON `SessaoAtiva` ou ausente quando não há sessão |
 
-### 5.2 Entidades
+### 6.2 Entidades
 
 - **`TemporizadorPersonalizado`**:
   - `id`: `string` (UUID único)
@@ -165,7 +189,7 @@ flowchart TD
 
 ---
 
-## 6. Regras de Negócio Implementadas
+## 7. Regras de Negócio Implementadas
 
 | Código | Descrição da Regra |
 | :--- | :--- |
@@ -185,7 +209,7 @@ flowchart TD
 
 ---
 
-## 7. Validações de Entrada
+## 8. Validações de Entrada
 
 | Código | Campo | Regra Aplicada |
 | :--- | :--- | :--- |
@@ -200,7 +224,7 @@ flowchart TD
 
 ---
 
-## 8. Casos de Uso Atendidos
+## 9. Casos de Uso Atendidos
 
 - **UC01 a UC03**: Criar, editar e excluir temporizadores personalizados (com validação por campo e proteção `RN-01`).
 - **UC04**: Iniciar sessão de foco com *snapshot* e *timestamps* de início/fim previsto.
@@ -213,14 +237,14 @@ flowchart TD
 
 ---
 
-## 9. Áudio e Som Ambiente
+## 10. Áudio e Som Ambiente
 
 - **Mitigação de Autoplay (`R-01` / `RNF-10`)**: Ao acionar **Iniciar Sessão de Foco**, o `AudioContext` é ativado imediatamente pela interação do usuário, garantindo que os alertas sonoros de término de fase toquem de forma confiável.
 - **Som Ambiente (Opcional)**: Conforme previsto como extensão opcional pela proposta do projeto, a barra inferior do temporizador oferece síntese acústica estéreo sem emendas (*Chuva na Janela*, *Ondas do Mar*, *Harmonia Zen* e *Ruído Marrom*) com ajuste fino de volume, sem exigir arquivos de mídia externos.
 
 ---
 
-## 10. Como Executar Localmente
+## 11. Como Executar Localmente
 
 ### Pré-requisitos
 - **Node.js** (versão 18 LTS ou superior) e **npm** instalados.
@@ -243,7 +267,7 @@ Acesse o endereço exibido no terminal (por padrão `http://localhost:5173`).
 
 ---
 
-## 11. Testes Automatizados e Build
+## 12. Testes Automatizados e Build
 
 ```bash
 # Executar suíte de testes unitários e de integração (Vitest)
