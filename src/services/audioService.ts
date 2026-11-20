@@ -171,6 +171,7 @@ class ServicoAudioPomodoro {
   private playerYoutube: YoutubePlayer | null = null;
   private playerYoutubePronto = false;
   private inicializandoYoutube = false;
+  private timerRestaurarVolume: number | null = null;
 
   private obterContexto(): AudioContext | null {
     if (typeof window === 'undefined') return null;
@@ -222,7 +223,8 @@ class ServicoAudioPomodoro {
   }
 
   /**
-   * RF-14 / RN-13 / RNF-10: Emite alerta sonoro audível ao fim de cada fase.
+   * RF-14 / RN-13 / RNF-10: Emite alerta sonoro audível ao fim de cada fase,
+   * reduzindo temporariamente o volume do som ambiente (audio ducking) para destacar o aviso.
    */
   public emitirAlertaFimDeFase(): void {
     try {
@@ -232,6 +234,8 @@ class ServicoAudioPomodoro {
       if (ctx.state === 'suspended') {
         void ctx.resume();
       }
+
+      this.atenuarSomAmbienteTemporariamente(ctx);
 
       const notas = [523.25, 659.25, 783.99, 1046.5];
       const agora = ctx.currentTime;
@@ -258,6 +262,66 @@ class ServicoAudioPomodoro {
       });
     } catch {
       // Respeita políticas de reprodução automática do navegador (RNF-10)
+    }
+  }
+
+  private atenuarSomAmbienteTemporariamente(ctx: AudioContext): void {
+    if (this.tipoAmbienteAtual === 'desativado') return;
+
+    const fatorAtenuacao = 0.08; // Reduz o som ambiente para 8% durante o aviso
+
+    if (this.ganhoMestreAmbiente) {
+      this.ganhoMestreAmbiente.gain.cancelScheduledValues(ctx.currentTime);
+      this.ganhoMestreAmbiente.gain.setTargetAtTime(
+        this.volumeAmbiente * 0.7 * fatorAtenuacao,
+        ctx.currentTime,
+        0.025
+      );
+    }
+
+    if (
+      this.playerYoutube &&
+      this.playerYoutubePronto &&
+      this.tipoAmbienteAtual === 'lofi'
+    ) {
+      try {
+        this.playerYoutube.setVolume(
+          Math.max(3, Math.round(this.volumeAmbiente * 100 * fatorAtenuacao))
+        );
+      } catch {
+        // Ignora erro de comunicação com player externo
+      }
+    }
+
+    if (this.timerRestaurarVolume !== null && typeof window !== 'undefined') {
+      window.clearTimeout(this.timerRestaurarVolume);
+    }
+
+    if (typeof window !== 'undefined') {
+      this.timerRestaurarVolume = window.setTimeout(() => {
+        this.timerRestaurarVolume = null;
+        if (this.tipoAmbienteAtual === 'desativado') return;
+
+        if (this.ganhoMestreAmbiente && this.contexto) {
+          this.ganhoMestreAmbiente.gain.setTargetAtTime(
+            this.volumeAmbiente * 0.7,
+            this.contexto.currentTime,
+            0.22
+          );
+        }
+
+        if (
+          this.playerYoutube &&
+          this.playerYoutubePronto &&
+          this.tipoAmbienteAtual === 'lofi'
+        ) {
+          try {
+            this.playerYoutube.setVolume(Math.round(this.volumeAmbiente * 100));
+          } catch {
+            // Ignora erro de comunicação com player externo
+          }
+        }
+      }, 1500);
     }
   }
 
@@ -649,6 +713,10 @@ class ServicoAudioPomodoro {
   }
 
   public pararSomAmbiente(): void {
+    if (this.timerRestaurarVolume !== null && typeof window !== 'undefined') {
+      window.clearTimeout(this.timerRestaurarVolume);
+      this.timerRestaurarVolume = null;
+    }
     for (const fonte of this.fontesAtivas) {
       try {
         fonte.stop();
