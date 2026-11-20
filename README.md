@@ -2,6 +2,8 @@
 
 Aplicação web *single-user* para gestão de ciclos de foco baseados na técnica **Pomodoro** e organização de tarefas de estudo, desenvolvida em **TypeScript** e **React**, com persistência integral em **Local Storage**, interface 100% em português, layout responsivo e retomada automática de sessão por *timestamps* absolutos.
 
+🌐 **Acesse a aplicação online (Netlify):** [**https://foco-estudo-pomodoro.netlify.app/**](https://foco-estudo-pomodoro.netlify.app/)
+
 ---
 
 ## Sumário
