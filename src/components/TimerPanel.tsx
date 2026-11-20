@@ -55,7 +55,7 @@ const OPCOES_SOM_AMBIENTE: { valor: TipoSomAmbiente; rotulo: string }[] = [
   { valor: 'chuva', rotulo: 'Chuva na Janela' },
   { valor: 'ondas', rotulo: 'Ondas do Mar' },
   { valor: 'zen', rotulo: 'Harmonia Zen' },
-  { valor: 'ruidoMarrom', rotulo: 'Ruído Marrom (Foco)' },
+  { valor: 'ruidoMarrom', rotulo: 'Ruído Marrom' },
 ];
 
 export const TimerPanel: React.FC<TimerPanelProps> = ({
