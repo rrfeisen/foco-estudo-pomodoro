@@ -208,21 +208,21 @@ class ServicoAudioPomodoro {
       osc.frequency.exponentialRampToValueAtTime(659.25, agora + 0.12);
 
       ganho.gain.setValueAtTime(0.001, agora);
-      ganho.gain.exponentialRampToValueAtTime(0.12, agora + 0.02);
-      ganho.gain.exponentialRampToValueAtTime(0.0001, agora + 0.22);
+      ganho.gain.exponentialRampToValueAtTime(0.38, agora + 0.02);
+      ganho.gain.exponentialRampToValueAtTime(0.0001, agora + 0.28);
 
       osc.connect(ganho);
       ganho.connect(ctx.destination);
 
       osc.start(agora);
-      osc.stop(agora + 0.24);
+      osc.stop(agora + 0.3);
     } catch {
       // Ignora silenciosamente caso o navegador bloqueie áudio
     }
   }
 
   /**
-   * RF-14 / RN-13 / RNF-10: Emite alerta sonoro audível ao fim de cada fase.
+   * RF-14 / RN-13 / RNF-10: Emite alerta sonoro audível e forte ao fim de cada fase.
    */
   public emitirAlertaFimDeFase(): void {
     try {
@@ -233,28 +233,58 @@ class ServicoAudioPomodoro {
         void ctx.resume();
       }
 
-      const notas = [523.25, 659.25, 783.99, 1046.5];
+      const notas = [523.25, 659.25, 783.99, 1046.5, 783.99, 1046.5];
       const agora = ctx.currentTime;
 
+      const ganhoAlertaMestre = ctx.createGain();
+      ganhoAlertaMestre.gain.setValueAtTime(0.95, agora);
+      ganhoAlertaMestre.connect(ctx.destination);
+
       notas.forEach((frequencia, indice) => {
-        const inicio = agora + indice * 0.16;
-        const duracao = indice === notas.length - 1 ? 0.55 : 0.24;
+        const inicio = agora + indice * 0.17;
+        const ehUltima = indice === notas.length - 1;
+        const duracao = ehUltima ? 0.75 : 0.28;
+        const sustentacao = inicio + (ehUltima ? 0.28 : 0.11);
 
-        const osc = ctx.createOscillator();
-        const ganho = ctx.createGain();
+        // Oscilador principal (corpo encorpado do alerta)
+        const oscPrincipal = ctx.createOscillator();
+        const ganhoPrincipal = ctx.createGain();
 
-        osc.type = 'triangle';
-        osc.frequency.setValueAtTime(frequencia, inicio);
+        oscPrincipal.type = 'triangle';
+        oscPrincipal.frequency.setValueAtTime(frequencia, inicio);
 
-        ganho.gain.setValueAtTime(0.001, inicio);
-        ganho.gain.exponentialRampToValueAtTime(0.24, inicio + 0.025);
-        ganho.gain.exponentialRampToValueAtTime(0.0001, inicio + duracao);
+        ganhoPrincipal.gain.setValueAtTime(0.001, inicio);
+        ganhoPrincipal.gain.linearRampToValueAtTime(0.85, inicio + 0.018);
+        ganhoPrincipal.gain.setValueAtTime(0.75, sustentacao);
+        ganhoPrincipal.gain.exponentialRampToValueAtTime(
+          0.0001,
+          inicio + duracao
+        );
 
-        osc.connect(ganho);
-        ganho.connect(ctx.destination);
+        oscPrincipal.connect(ganhoPrincipal);
+        ganhoPrincipal.connect(ganhoAlertaMestre);
 
-        osc.start(inicio);
-        osc.stop(inicio + duracao + 0.02);
+        // Harmônico de brilho (sino na faixa de maior sensibilidade auditiva)
+        const oscBrilho = ctx.createOscillator();
+        const ganhoBrilho = ctx.createGain();
+
+        oscBrilho.type = 'sine';
+        oscBrilho.frequency.setValueAtTime(frequencia * 2, inicio);
+
+        ganhoBrilho.gain.setValueAtTime(0.001, inicio);
+        ganhoBrilho.gain.linearRampToValueAtTime(0.32, inicio + 0.015);
+        ganhoBrilho.gain.exponentialRampToValueAtTime(
+          0.0001,
+          inicio + duracao * 0.75
+        );
+
+        oscBrilho.connect(ganhoBrilho);
+        ganhoBrilho.connect(ganhoAlertaMestre);
+
+        oscPrincipal.start(inicio);
+        oscPrincipal.stop(inicio + duracao + 0.03);
+        oscBrilho.start(inicio);
+        oscBrilho.stop(inicio + duracao + 0.03);
       });
     } catch {
       // Respeita políticas de reprodução automática do navegador (RNF-10)
