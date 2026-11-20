@@ -51,6 +51,7 @@ export interface TimerPanelProps {
 
 const OPCOES_SOM_AMBIENTE: { valor: TipoSomAmbiente; rotulo: string }[] = [
   { valor: 'desativado', rotulo: 'Desativado' },
+  { valor: 'lofi', rotulo: 'Lo-Fi (internet required)' },
   { valor: 'chuva', rotulo: 'Chuva na Janela' },
   { valor: 'ondas', rotulo: 'Ondas do Mar' },
   { valor: 'zen', rotulo: 'Harmonia Zen' },

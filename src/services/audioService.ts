@@ -1,9 +1,42 @@
 export type TipoSomAmbiente =
   | 'desativado'
+  | 'lofi'
   | 'chuva'
   | 'ondas'
   | 'zen'
   | 'ruidoMarrom';
+
+const YOUTUBE_LOFI_VIDEO_ID = '1ymREG2zvNo';
+
+interface YoutubePlayer {
+  playVideo: () => void;
+  pauseVideo: () => void;
+  setVolume: (volume: number) => void;
+  unMute: () => void;
+  seekTo: (segundos: number, allowSeekAhead?: boolean) => void;
+}
+
+interface JanelaComYoutube extends Window {
+  YT?: {
+    Player?: new (
+      elemento: string | HTMLElement,
+      opcoes: {
+        videoId: string;
+        width?: string | number;
+        height?: string | number;
+        playerVars?: Record<string, string | number>;
+        events?: {
+          onReady?: (evento: { target: YoutubePlayer }) => void;
+          onStateChange?: (evento: {
+            data: number;
+            target: YoutubePlayer;
+          }) => void;
+        };
+      }
+    ) => YoutubePlayer;
+  };
+  onYouTubeIframeAPIReady?: () => void;
+}
 
 /**
  * Cria um AudioBuffer estéreo com crossfade de potência igual nas bordas,
@@ -135,6 +168,9 @@ class ServicoAudioPomodoro {
   private nosAtivos: AudioNode[] = [];
   private tipoAmbienteAtual: TipoSomAmbiente = 'desativado';
   private volumeAmbiente = 0.4;
+  private playerYoutube: YoutubePlayer | null = null;
+  private playerYoutubePronto = false;
+  private inicializandoYoutube = false;
 
   private obterContexto(): AudioContext | null {
     if (typeof window === 'undefined') return null;
@@ -237,7 +273,8 @@ class ServicoAudioPomodoro {
   }
 
   /**
-   * Configura síntese acústica realista de som ambiente via Web Audio API:
+   * Configura som ambiente via Web Audio API ou streaming YouTube (Lo-Fi):
+   * - Lo-Fi (internet required): stream de áudio do YouTube (1ymREG2zvNo) em loop
    * - Chuva na Janela: cortina estéreo de chuva (ruído rosa filtrado) + gotas d'água estocásticas
    * - Ondas do Mar: duas frentes de ondas estéreo com modulação sincronizada de volume e espuma
    * - Harmonia Zen: acorde ambiente acolhedor (Cmaj9) com respiração lenta estéreo estilo Deep Focus
@@ -248,23 +285,30 @@ class ServicoAudioPomodoro {
       this.volumeAmbiente = Math.min(1, Math.max(0, volume));
     }
 
-    if (
-      tipo === this.tipoAmbienteAtual &&
-      this.ganhoMestreAmbiente &&
-      this.contexto
-    ) {
-      this.ganhoMestreAmbiente.gain.setTargetAtTime(
-        this.volumeAmbiente * 0.7,
-        this.contexto.currentTime,
-        0.08
-      );
-      return;
+    if (tipo === this.tipoAmbienteAtual && tipo !== 'desativado') {
+      if (tipo === 'lofi') {
+        this.ajustarVolumeAmbiente(this.volumeAmbiente);
+        return;
+      }
+      if (this.ganhoMestreAmbiente && this.contexto) {
+        this.ganhoMestreAmbiente.gain.setTargetAtTime(
+          this.volumeAmbiente * 0.7,
+          this.contexto.currentTime,
+          0.08
+        );
+        return;
+      }
     }
 
     this.pararSomAmbiente();
     this.tipoAmbienteAtual = tipo;
 
     if (tipo === 'desativado') {
+      return;
+    }
+
+    if (tipo === 'lofi') {
+      this.ativarLofiYoutube();
       return;
     }
 
@@ -296,6 +340,116 @@ class ServicoAudioPomodoro {
       }
     } catch {
       this.tipoAmbienteAtual = 'desativado';
+    }
+  }
+
+  private ativarLofiYoutube(): void {
+    if (typeof window === 'undefined' || typeof document === 'undefined') {
+      return;
+    }
+
+    if (this.playerYoutube && this.playerYoutubePronto) {
+      try {
+        this.playerYoutube.setVolume(Math.round(this.volumeAmbiente * 100));
+        this.playerYoutube.unMute();
+        this.playerYoutube.playVideo();
+      } catch {
+        // Ignora falhas de comunicação com iframe
+      }
+      return;
+    }
+
+    if (this.inicializandoYoutube) {
+      return;
+    }
+    this.inicializandoYoutube = true;
+
+    const win = window as JanelaComYoutube;
+
+    let container = document.getElementById('pomodoro-yt-lofi-host');
+    if (!container) {
+      container = document.createElement('div');
+      container.id = 'pomodoro-yt-lofi-host';
+      container.setAttribute('aria-hidden', 'true');
+      Object.assign(container.style, {
+        position: 'fixed',
+        width: '200px',
+        height: '200px',
+        bottom: '-220px',
+        right: '-220px',
+        opacity: '0.01',
+        pointerEvents: 'none',
+        zIndex: '-1',
+      });
+      const alvo = document.createElement('div');
+      alvo.id = 'pomodoro-yt-lofi-player';
+      container.appendChild(alvo);
+      document.body.appendChild(container);
+    }
+
+    const criarInstanciaPlayer = () => {
+      if (!win.YT || !win.YT.Player) return;
+      try {
+        this.playerYoutube = new win.YT.Player('pomodoro-yt-lofi-player', {
+          videoId: YOUTUBE_LOFI_VIDEO_ID,
+          width: 200,
+          height: 200,
+          playerVars: {
+            autoplay: 1,
+            controls: 0,
+            disablekb: 1,
+            fs: 0,
+            loop: 1,
+            playlist: YOUTUBE_LOFI_VIDEO_ID,
+            modestbranding: 1,
+            playsinline: 1,
+            rel: 0,
+          },
+          events: {
+            onReady: (ev) => {
+              this.playerYoutubePronto = true;
+              this.inicializandoYoutube = false;
+              ev.target.setVolume(Math.round(this.volumeAmbiente * 100));
+              if (this.tipoAmbienteAtual === 'lofi') {
+                ev.target.unMute();
+                ev.target.playVideo();
+              } else {
+                ev.target.pauseVideo();
+              }
+            },
+            onStateChange: (ev) => {
+              // 0 = YT.PlayerState.ENDED -> reinicia para loop contínuo
+              if (ev.data === 0 && this.tipoAmbienteAtual === 'lofi') {
+                ev.target.seekTo(0, true);
+                ev.target.playVideo();
+              }
+            },
+          },
+        });
+      } catch {
+        this.inicializandoYoutube = false;
+      }
+    };
+
+    if (win.YT && win.YT.Player) {
+      criarInstanciaPlayer();
+      return;
+    }
+
+    const callbackAnterior = win.onYouTubeIframeAPIReady;
+    win.onYouTubeIframeAPIReady = () => {
+      if (typeof callbackAnterior === 'function') {
+        callbackAnterior();
+      }
+      criarInstanciaPlayer();
+    };
+
+    if (!document.getElementById('pomodoro-yt-iframe-api')) {
+      const script = document.createElement('script');
+      script.id = 'pomodoro-yt-iframe-api';
+      script.src = 'https://www.youtube.com/iframe_api';
+      script.async = true;
+      document.head.appendChild(script);
     }
   }
 
@@ -485,6 +639,13 @@ class ServicoAudioPomodoro {
         0.05
       );
     }
+    if (this.playerYoutube && this.playerYoutubePronto) {
+      try {
+        this.playerYoutube.setVolume(Math.round(this.volumeAmbiente * 100));
+      } catch {
+        // Ignora erro de player externo
+      }
+    }
   }
 
   public pararSomAmbiente(): void {
@@ -500,6 +661,13 @@ class ServicoAudioPomodoro {
         no.disconnect();
       } catch {
         // Nó já desconectado
+      }
+    }
+    if (this.playerYoutube && this.playerYoutubePronto) {
+      try {
+        this.playerYoutube.pauseVideo();
+      } catch {
+        // Player já pausado
       }
     }
     this.fontesAtivas = [];

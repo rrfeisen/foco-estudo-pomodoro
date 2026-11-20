@@ -44,7 +44,7 @@ Toda a execução ocorre diretamente no navegador do usuário, preservando os te
   - Verificação de integridade dos dados no `localStorage`, oferecendo descarte seguro em caso de estado corrompido.
 - **Alerta Sonoro e Som Ambiente Opcional**:
   - Alerta sonoro melódico sintetizado via **Web Audio API** ao término de cada fase, com desbloqueio automático do contexto de áudio no início da sessão.
-  - Gerador acústico opcional de **Som Ambiente** em estéreo (*Chuva na Janela*, *Ondas do Mar*, *Harmonia Zen* e *Ruído Marrom*) com controle de volume integrado e execução 100% local.
+  - Gerador acústico opcional de **Som Ambiente** em estéreo (*Lo-Fi (internet required)*, *Chuva na Janela*, *Ondas do Mar*, *Harmonia Zen* e *Ruído Marrom*) com controle de volume integrado e execução 100% local.
 - **Painel Lateral de Tarefas de Estudo**:
   - Cadastro, edição, atualização rápida de estado e exclusão (com confirmação obrigatória) de tarefas totalmente desacopladas do temporizador.
   - Estados suportados: **Backlog**, **A fazer**, **Em execução**, **Concluída** e **Cancelada**.
@@ -86,7 +86,7 @@ Esta seção documenta as principais escolhas arquiteturais e técnicas da equip
 6. **CSS3 próprio com *Custom Properties* (variáveis CSS) em vez de biblioteca externa**:
    - O documento concede liberdade de estilização; optar por CSS3 nativo com Grid/Flexbox e variáveis dinâmicas por fase (`Foco`, `Pausa Curta`, `Pausa Longa` e `Concluída`) evita sobrecarga de dependências, facilita o layout responsivo (`RF-18`, `RNF-05`) e oferece controle direto de contraste e foco visível para acessibilidade por teclado (`RNF-07`).
 7. **Alertas sonoros e som ambiente sintetizados via Web Audio API**:
-   - Sintetizar os alertas e o som ambiente opcional (*Chuva na Janela*, *Ondas do Mar*, *Harmonia Zen* e *Ruído Marrom*) diretamente no navegador elimina dependência de arquivos de mídia externos, funciona 100% offline e mitiga políticas de *autoplay* (`R-01`, `RNF-10`) ao inicializar o `AudioContext` na interação explícita do usuário com o botão **Iniciar**.
+   - Sintetizar os alertas e o som ambiente opcional (*Lo-Fi (internet required)*, *Chuva na Janela*, *Ondas do Mar*, *Harmonia Zen* e *Ruído Marrom*) diretamente no navegador elimina dependência de arquivos de mídia externos, funciona 100% offline e mitiga políticas de *autoplay* (`R-01`, `RNF-10`) ao inicializar o `AudioContext` na interação explícita do usuário com o botão **Iniciar**.
 8. **Estado nativo com React Hooks e testes automatizados com Vitest + JSDOM**:
    - Como se trata de uma aplicação *single-user* sem *backend* (`RT-03`), os hooks nativos do React (`useState`, `useMemo`, `useCallback`, `useEffect`) entregam simplicidade e baixa latência de interface (`RNF-01`), dispensando gerenciadores globais pesados. O **Vitest** foi escolhido pela integração nativa com Vite/TypeScript, cobrindo testes unitários de regras de negócio e testes de integração dos fluxos da interface.
 
@@ -240,7 +240,7 @@ flowchart TD
 ## 10. Áudio e Som Ambiente
 
 - **Mitigação de Autoplay (`R-01` / `RNF-10`)**: Ao acionar **Iniciar Sessão de Foco**, o `AudioContext` é ativado imediatamente pela interação do usuário, garantindo que os alertas sonoros de término de fase toquem de forma confiável.
-- **Som Ambiente (Opcional)**: Conforme previsto como extensão opcional pela proposta do projeto, a barra inferior do temporizador oferece síntese acústica estéreo sem emendas (*Chuva na Janela*, *Ondas do Mar*, *Harmonia Zen* e *Ruído Marrom*) com ajuste fino de volume, sem exigir arquivos de mídia externos.
+- **Som Ambiente (Opcional)**: Conforme previsto como extensão opcional pela proposta do projeto, a barra inferior do temporizador oferece síntese acústica estéreo sem emendas (*Lo-Fi (internet required)*, *Chuva na Janela*, *Ondas do Mar*, *Harmonia Zen* e *Ruído Marrom*) com ajuste fino de volume, sem exigir arquivos de mídia externos.
 
 ---
 
